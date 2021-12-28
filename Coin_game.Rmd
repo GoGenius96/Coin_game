@@ -45,7 +45,7 @@ Many_Games <- function(Startvalue = 10, rounds = 100, players = 10, ...){
     df <- melt(df , id.vars = 'index', variable.name = 'Spieler')
 
     g <- ggplot(df, aes(index,value))+ 
-      geom_line(aes(group = Spieler),alpha=1/log10(rounds),linewidth=1/log10(players))+
+      geom_line(aes(group = Spieler),alpha=1/log10(rounds),size=1/log10(players))+
       scale_y_log10()+
       geom_point(aes(x=(rounds+1),y=max(c(Startvalue*players-sum(df[`index`==(rounds+1),"value"])),0)),color="green")+
       geom_function(fun = function(index) 10*((1.5*0.6)^0.5)^(index-1),color="pink")+
