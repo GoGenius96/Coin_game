@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = FALSE)
 
 library(ggplot2)
 library(reshape2)
-set.seed(12)
+set.seed(22)
 ```
 
 Tail is a Win. Head is a Lose
@@ -35,20 +35,20 @@ One_Game <- function(Win = 1.5, Lose = 0.6, Startvalue = 10, rounds = 100,head_p
 
 
 ```{r message=FALSE, warning=FALSE}
-Many_Games <- function(Startvalue = 10, rounds = 100, players = 10, ...){
+Many_Games <- function(Startvalue = 10, rounds = 100, players = 10, Win = 1.5, Lose = 0.6, ...){
     df <- data.frame(matrix(nrow = (rounds+1),ncol = players))
     df$index <- 1:nrow(df)
     for(i in 1:(ncol(df)-1)){
-      df[,i] <- One_Game(Startvalue = Startvalue, rounds = rounds,...)
+      df[,i] <- One_Game(Startvalue = Startvalue, rounds = rounds, Win = Win, Lose = Lose, ...)
     }
 
     df <- melt(df , id.vars = 'index', variable.name = 'Spieler')
 
     g <- ggplot(df, aes(index,value))+ 
-      geom_line(aes(group = Spieler),alpha=1/log10(rounds),linewidth=1/log10(players))+
+      geom_line(aes(group = Spieler),alpha=1/log10(rounds),size=1/log10(players))+
       scale_y_log10()+
       geom_point(aes(x=(rounds+1),y=max(c(Startvalue*players-sum(df[`index`==(rounds+1),"value"])),0)),color="green")+
-      geom_function(fun = function(index) 10*((1.5*0.6)^0.5)^(index-1),color="pink")+
+      geom_function(fun = function(index) Startvalue*((Win*Lose)^0.5)^(index-1),color="pink")+
       geom_hline(yintercept = Startvalue,color="red",linetype="dashed")+
       geom_hline(yintercept = Startvalue*players,color="blue",linetype="dotdash")+
       labs(title="Sample Coin Toss Games", x= "Rounds played", y="Current score")+
@@ -61,7 +61,7 @@ Many_Games <- function(Startvalue = 10, rounds = 100, players = 10, ...){
 
 ```{r message=FALSE, warning=FALSE}
 Many_Games(players = 100,rounds = 100)
-Many_Games(players = 1000,rounds = 500)
+Many_Games(players = 100,rounds = 500)
 ```
 
 
