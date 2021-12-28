@@ -1,0 +1,78 @@
+---
+title: "A coin game and the difference between geometric and arithmetic mean"
+author: "Eugen Gorich"
+date: "12/28/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(ggplot2)
+library(reshape2)
+set.seed(12)
+```
+
+Tail is a Win. Head is a Lose
+```{r}
+One_Game <- function(Win = 1.5, Lose = 0.6, Startvalue = 10, rounds = 100,head_prob = 0.5){
+    
+    Outcomes = sample(0:1, size=rounds,prob = c(head_prob,1-head_prob),replace = TRUE)
+    Spielverlauf = c(Startvalue)
+    index=1
+    for(i in Outcomes){
+      if(i){
+        Spielverlauf = c(Spielverlauf,Spielverlauf[index]*Win)
+      } else{
+        Spielverlauf = c(Spielverlauf,Spielverlauf[index]*Lose)
+      }
+      index=index + 1
+    }
+    
+    return(Spielverlauf)
+}
+```
+
+
+```{r message=FALSE, warning=FALSE}
+Many_Games <- function(Startvalue = 10, rounds = 100, players = 10, ...){
+    df <- data.frame(matrix(nrow = (rounds+1),ncol = players))
+    df$index <- 1:nrow(df)
+    for(i in 1:(ncol(df)-1)){
+      df[,i] <- One_Game(Startvalue = Startvalue, rounds = rounds,...)
+    }
+
+    df <- melt(df , id.vars = 'index', variable.name = 'Spieler')
+
+    g <- ggplot(df, aes(index,value))+ 
+      geom_line(aes(group = Spieler),alpha=1/log10(rounds),linewidth=1/log10(players))+
+      scale_y_log10()+
+      geom_point(aes(x=(rounds+1),y=max(c(Startvalue*players-sum(df[`index`==(rounds+1),"value"])),0)),color="green")+
+      geom_function(fun = function(index) 10*((1.5*0.6)^0.5)^(index-1),color="pink")+
+      geom_hline(yintercept = Startvalue,color="red",linetype="dashed")+
+      geom_hline(yintercept = Startvalue*players,color="blue",linetype="dotdash")+
+      labs(title="Sample Coin Toss Games", x= "Rounds played", y="Current score")+
+      theme_bw()
+
+    return(g)
+}
+```
+
+
+```{r message=FALSE, warning=FALSE}
+Many_Games(players = 100,rounds = 100)
+Many_Games(players = 1000,rounds = 500)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
