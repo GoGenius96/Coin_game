@@ -15,10 +15,15 @@ knitr::opts_chunk$set(
 	message = FALSE,
 	warning = FALSE
 )
+list.of.packages <- c("ggplot2", "dplyr","rmarkdown","reshape2","plotly")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)){install.packages(new.packages)}
+
 library(ggplot2)
 library(dplyr)
 library(rmarkdown)
 library(reshape2)
+
 set.seed(53)
 ```
 
@@ -28,16 +33,18 @@ At the time of writing the second season of `The Witcher` series is trending on 
 
 ## Inspiration for a gambling game
 
-I once red about a gamble in thriller book about financal meltdown, [Greed - by Marc Elsberg](https://www.amazon.com/-/de/dp/3734105587/ref=tmm_pap_swatch_0?_encoding=UTF8&qid=&sr=). The story went as that (Spoiler-alert):  
-A guy offers the following game to 10 people in a bar. Each of the 10 people pay the guy 10€ and then they individually throw a fair coin 100 times. Each time when they throw a head, their paid money increases by a factor of 1.5 and each time when they throw a Tail, their paid money decreases by a factor of 0.6. After the 100 tosses they get payed back the amount they ended with.  
-Example: I pay 10€ and throw a head on my first turn - now I'm at 15€. In the next round I throw a head again - now I'm at 22.5€. I the third round I throw tail - now I'm at 13.5€. After 100 rounds I might be at 7€, so I get payed back 7€ and therefore lost 3€ (10€ payed, 7€ won).  
-The story continuous with one man convincing the other 9 to play as well, because he learned in school, that the average win in this game must be $\frac12 1.5 + \frac 12 0.6 = 1.05$ and thus each game has a expected win-factor of 1.05. What follows is, that all 10 of them play and lose the game and the guy who just won almost 100€ lectures them on mathematics, why not to play a game like this and what this has to do with the crash of economies.  
+I once read about a gambling game in a thriller book about a financial meltdown, [Greed - by Marc Elsberg](https://www.amazon.com/-/de/dp/3734105587/ref=tmm_pap_swatch_0?_encoding=UTF8&qid=&sr=). 
+It went like this (Spoiler alert): A guy offers the following game to 10 people in a bar. Each of the 10 people pay the guy 10€ and then they individually throw a fair coin 100 times. Each time when they throw a head, their paid money increases by a factor of 1.5 and each time when they throw a tail, their money decreases by a factor of 0.6. After 100 coin tosses they get payed back the amount they ended with.  
+Example: I pay 10€ and throw a head on my first turn - now I'm at 15€. In the next round I throw a head again - now I'm at 22.5€. In the third round I throw tail - now I'm at 13.5€. After 100 rounds I might be at 7€, so I get payed back 7€ and therefore lost 3€ (10€ payed, 7€ won).  
+The story continuous with one man convincing the other nine to play, because, he learned in school, that the average win in this game must be $\frac12 1.5 + \frac 12 0.6 = 1.05$ and thus each game has an expected win-factor of 1.05. What follows is, that all 10 of them play and lose the game and the guy who just won almost 100€ lectures them on mathematics, why not to play a game like this and what this has to do with the crash of economies.  
 
-I was fascinated by this game and was wondering about what went wrong in the reasoning of the man. Therefore I simulated the game and played around with different numbers of players and factors. But I couldn't replicate the conclusion of the guy who offered the game, because indeed, a lot of times, the game was a lose for me (in this scenario I'm the one offering the game). So I began to think, that it doesn't make sense for me to offer this game. But at the same time, most or even all of the players lost the game, so I wouldn't play this game as well. `It seemed to me, that I found a game where it is not recommendable to play the game but also not recommendable to offer the game.`  
+I was fascinated by this game and was wondering about what went wrong in the reasoning of the man. Therefore I simulated the game and played around with different numbers of players and factors. But I couldn't replicate the conclusion of the guy who offered the game, because indeed, a lot of times, the game was a lose for me (in this scenario I'm the one offering the game). So I began to think, that it doesn't make sense for me to offer this game. But at the same time, most or even all of the players lost the game, so I wouldn't wanna play this game neither. `It seemed to me, that I found a game where it is not recommendable to play the game, but also not recommendable to offer it.`  
 
 In this small project I want to analyse more specifically why this is the case and use this opportunity to learn more about the geometric mean and log-normal-distributions.
 
-# One Game
+# Simulation
+
+## One Game
 
 We start by writing a function that simulates the game for a single player. It doesn't matter which result (head, tail) is a win or lose, but for the sake of writing we say that head is a win and tail is a lose.
 
@@ -88,7 +95,7 @@ One_Game()
 So this player above ended with approx. 32 Cents, meaning, he lost almost all of the 10€ he started with.
 
 
-# Many Games
+## Many Games
 
 Next, we want to create a data frame that contains the Game results of `One_Game` for any multiple of players.
 
@@ -126,7 +133,7 @@ paged_table(Many_Games())
 ```
 As we can see on Page 11, all players lost the game. But player 8 lost "only" 5€ which is "only" two heads away from winning ($5*1.5*1.5 = 11.25 > 10$).
 
-# Many Games Visualized
+## Many Games Visualized
 
 To get a better understanding of the game we will create a random walk plot that shows us the course of the games of all players. To do so, we write the function `Many_Games_plot`.
 
@@ -279,7 +286,7 @@ Winning <- function(rounds = 100, players = 1, Win = 1.5, Lose = 0.6, head_prob=
   nenner = sqrt(rounds*head_prob*(1-head_prob))
   
   return(pnorm(zaehler/nenner,lower.tail = FALSE))
-    
+  
 }
 ```
 
@@ -293,9 +300,47 @@ The probability to win a the coin game for 500 rounds, a fair coin, a winning fa
 and the probability to win it all with 100 players is  
 `Winning(rounds=500, players=100):` `r Winning(rounds=500,players=100)`.
 
+Using the `Winning` function we can also create some 3D plots to visualize relationships between different variables.
+
+As explained before, the probability for "winning it all" depends only logarithmically on the number of players $n_p$ and linearly on the number of rounds played $n$. We can see this in the following plot:
+
+```{r echo=FALSE}
+library(plotly)
+
+rounds <- seq(100, 1000, length= 46)
+players <- seq(1,1001,length=51)
+probabilities <- matrix(nrow = length(rounds),ncol = length(players))
+
+for(p in 1:length(players)){
+  probabilities[,p] <- Winning(rounds = rounds ,players = (p-1)*20+1)
+}
+plot_ly() %>% add_surface(x = ~rounds, y = ~players, z = ~log(probabilities))
+
+```
+
+
+
+Another interesting relationship is the one between $f_w$ and $f_l$:
+
+```{r echo=FALSE}
+
+winning_factor <- seq(1, 2, length= 100)
+losing_factor <- seq(1, 0.1, length= 100)
+probabilities <- matrix(nrow = length(winning_factor),ncol = length(losing_factor))
+
+for(l in 1:length(losing_factor)){
+  probabilities[,l] <- Winning(Win = winning_factor, Lose = losing_factor[l])
+}
+plot_ly() %>% add_surface(x = ~winning_factor, y = ~losing_factor, z = ~probabilities)
+
+```
+
+As expected and explained, the winning probability is very sensitive to $f_w$ and $f_l$. 
+
 # Conclusion
 
-As we can see, the guy from the bar might be doing himself a favor by not offering this game to often, because with increasing an amount of players it becomes very certain that he will lose all his money to a few lucky players. After all, the amount of money that a player can win is very high, but the amount of money a player can lose is just the starting value/the price of the game. Instead the guy should stop lecturing the bar guests and go back to study statistics with Dr. Fabian Scheipl.
+As we can see, the guy from the bar might be doing himself a favor by not offering this game to often, because with increasing an amount of players it becomes very certain that he will lose all his money to a few lucky players. After all, the amount of money that a player can win is very high, but the amount of money a player can lose is just the starting value, i.e. the price of the game. Of course the guy could also choose better values for $f_w$ and $f_l$, but it's not obvious if the game will then still be attractive to players. After all the guy who calculated the average return as $\frac12 1.5 + \frac 12 0.6 = 1.05$ would not play this game if $f_l$ is below $0.5$ or $2-f_w$ in general - This area $f_l = 2-f_w$ would be pretty much be the lower boundary of the sensitive area in the plot above. So instead of adjusting the factors, the guy who offered the game should stop lecturing the bar guests and go back to study statistics with Dr. Fabian Scheipl.
+
 
 
 
