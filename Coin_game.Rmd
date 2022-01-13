@@ -325,7 +325,7 @@ Another interesting relationship is the one between $f_w$ and $f_l$:
 ```{r echo=FALSE}
 
 winning_factor <- seq(1, 2, length= 100)
-losing_factor <- seq(1, 0.1, length= 100)
+losing_factor <- seq(0.1, 1, length= 100)
 probabilities <- matrix(nrow = length(winning_factor),ncol = length(losing_factor))
 
 for(l in 1:length(losing_factor)){
