@@ -1,0 +1,266 @@
+---
+title: "Tossing Coins"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+library(tidyverse)
+library(checkmate)
+library(lognorm)
+set.seed(53)
+```
+
+## Definitions
+
+```{r}
+# one player game
+#
+# assumes initial stake of 1 & fair coin tosses.
+# returns vector of payouts over rounds. 
+play_once <- 
+  function(rounds = 100, win = 1.5, lose = 0.6) {
+    check_count(rounds)
+    check_number(win, lower = 1)
+    check_number(lose, lower = 0, upper = 1)
+    
+    sample(c(win, lose), rounds, replace = TRUE) |> 
+        cumprod()
+  }
+
+# n player game
+# returns matrix of payout vectors. rounds in rows, people in columns.
+play <- function(n_people = 10, ...) {
+  check_count(n_people)
+  
+  args <- list(...)
+  replicate(n_people, 
+            do.call(play_once, args))
+}
+```
+
+**I'll just assume an initial stake of 1€ / 1 Gold / whatever and a fair coin with P(Win) = P(Lose) = 0.5 for simplicity.**
+
+Wins increase the current stake by a factor $w>1$, losses decrease it by a factor $0<l<1$. Each player plays for $n$ rounds. The number of winning tosses after $n$ rounds is $k$. The bank offers the game to $m$ players.
+
+## Single player perspective
+
+IMO, "Is it a good idea to play the game?" has two possible interpretations for the player here:
+
+1.  Could be understood as "Is the probability to make any profit at all big enough (e.g., bigger than 0.5)?", but that completely ignores the fact that, as you also point out, potential profit here is *much* larger than potential loss -- the maximal possible profit is $w^n - 1$ (i.e., potentially huge), while the maximal possible loss is just $1 - l^n \ll 1$.
+2.  So: should be understood as "Is the average payout big enough (i.e., bigger than the initial stake)?" -- a question about the expected value of the payout.
+
+### Probability of making any profit at all for a given player
+
+Computing this probability boils down to "At least how many winning rounds $k$ out of $n$ for a single player to make a profit?"
+
+Answer: $w^k l^{n-k} > 1 \iff k > \frac{-n \log l}{\log w - \log l} = k_{\min}$\
+(same result as yours..)
+
+Number of winning tosses $K$ is $\sim B(n, 0.5)$, so:
+
+```{r}
+# compute P(K >= k_min | win, lose, rounds)
+p_profit <- function(rounds, win, lose) {
+  k_min <-  (-rounds * log(lose))/(log(win) - log(lose))
+  1 - pbinom(k_min, size = rounds, prob = 0.5)
+}
+# compute for grid of (n, w, l)-values:
+p_profit_table <- 
+  expand.grid(
+    rounds = c(100, 500, 5000), 
+    win = seq(1.1, 2, l = 200),
+    lose = seq(0.5, 0.9, l = 200)) |> 
+  mutate(p_profit = p_profit(rounds, win, lose))
+
+ggplot(p_profit_table) +
+  geom_raster(aes(x = win, y = lose, fill = p_profit)) +
+  facet_wrap(~ rounds) + 
+  scale_fill_gradient2("P(Profit)", midpoint = 0.5) +
+  theme(legend.position = "bottom")
+```
+
+As one would expect, if $w \approx 1/l$, the probability to make a profit is $\approx 0.5$. It quickly goes to $0$ for $l < 1/w$ or to $1$ for $l > 1/w$, especially if we let the game run for many rounds.
+
+<details>
+
+Verify with simulation:
+
+```{r}
+set.seed(1312)
+
+rounds <- 500; win <- 2; lose <- 0.5
+(p_profit(rounds, win, lose))
+mean(
+  play(n_people = 1e4, rounds, win, lose)[rounds, ] > 1)
+
+rounds <- 2e3; win <- 1.23; lose <- 0.81
+(p_profit(rounds, win, lose))
+mean(
+  play(n_people = 1e4, rounds, win, lose)[rounds, ] > 1)
+```
+
+</details>
+
+### Expected Payout
+
+Define the payout after $n$ tosses as $X = g(K; n, w, l) = w^K l^{n-K}$. This means $K = g^{-1}(X) = \frac{\log X - n \log l}{\log w - \log l}$, so we get the ugliest pdf in the world: $$f_X(x) = f_K(g^{-1}(x)) \frac{1/x - n \log l}{\log w - \log l}$$ -- not trying to find an analytical expression for $E(X)$ based on that.
+
+Instead, go back to data generating process:
+
+-   For any sequence of coin tosses with $k$ successes in $n$ rounds, the payoff is $w^k l^{n-k}$.
+-   Assuming a fair coin, any sequence of $n$ toin cosses with $k$ successes has probability: $\binom{n}{k} 0.5^n$ $\implies$ $$E(X) = \sum_{x \in T_X} x P(X=x) = \sum^n_{k=0} w^k l^{n-k} \binom{n}{k} 0.5^n = (0.5(w + l))^n$$ (Binomial theorem: $(a + b)^n = \sum \binom{n}{k} a^k b^{n-k}$)
+
+So, regardless of $n$, $$E(X; n, w, l) > 1 \iff l > 2 - w,$$ and $E(X)$ quickly becomes very large or very close to zero for combinations of $w$ and $l$ that don't satisfy $w + l \approx 2$ if $n$ is even moderately big:
+
+```{r}
+# E(X; n, w, l)
+expected_payout <- function(rounds, win, lose) {
+  (0.5 * (win + lose))^rounds
+}
+# compute for grid of (n, w, l)-values:
+expected_payout_table <- 
+  expand.grid(
+    rounds = c(5, 10, 20), 
+    win = seq(1.1, 2, l = 200),
+    lose = seq(0.5, 0.9, l = 200)) |> 
+  mutate(log_payout = expected_payout(rounds, win, lose) |> log10())
+
+ggplot(expected_payout_table) +
+  geom_raster(aes(x = win, y = lose, fill = log_payout)) +
+  facet_wrap(~rounds, ) +
+  scale_fill_gradient2("Expected Payout (log10)", midpoint = 0) +
+  theme(legend.position = "bottom")
+```
+
+<details>
+
+Verify with simulation:
+
+```{r}
+set.seed(1312)
+
+rounds <- 10; win <- 2; lose <- 0.5
+(expected_payout(rounds, win, lose))
+mean(play(n_people = 1e5, rounds, win, lose)[rounds, ])
+
+rounds <- 20; win <- 1.23; lose <- 0.81
+(expected_payout(rounds, win, lose))
+mean(play(n_people = 1e5, rounds, win, lose)[rounds, ])
+```
+
+</details>
+
+## Bank perspective
+
+The bank offers the game to $m$ players. The payout to the bank is $Z = m - \sum^m_j X_j$, where the $X_j$ are i.i.d. and represent the payouts to each of the players and we assume every player pays the bank 1 unit of currency as their initial stake.
+
+To decide whether the bank *should* offer the game, we could again consider
+
+-   the expected payout $E(Z)$
+-   the probability that the bank gets ruined, i.e. that, at the end of the game, it has to pay out more money than it initially took in from the $m$ players, so $P(Z < 0) = P(\sum^m_j X_j > m)$
+
+Even before we compute this, it seems obvious that offering the game is at least dangerous for the bank: in the best case ("all players losing all the time"), it only gets $(m - l^n m) < m$ but in the worst case ("all players win all the time") it has to pay out $w^n m$. Antother way to think about this is: the distribution of player payouts is very right-skewed, so the distribution of bank payout (negative sum of player payouts) is very left-skewed.
+
+*NB: You also analysed the probability that any single player wins more than the sum of all stakes of all* $m$ players. I did not do that because I think it's irrelevant to decide the question of whether to play or not from either the player's or the bank's perspective...
+
+### Expected payout for the bank
+
+Let $Z = m - \sum^m_j X_j$ and $X_j$ are i.i.d., this yields $$E(Z; n, w, l) = m - m E(X; n, w, l) = (1 - (0.5(w + l))^n)m$$ so it's "rational" (in the sense of "$E(Z) > 0$") for the bank to offer the game as long as $w + l < 2$, regardless of the number of players $m$ or rounds $n$.
+
+```{r}
+# E(Z; m, n,  w, l)
+expected_bank_payout <- function(players, rounds, win, lose) {
+  (1 - (0.5 * (win + lose))^rounds) * players
+}
+# compute for grid of (m, n, w, l)-values:
+expected_bank_payout_table <- 
+  expand.grid(
+    players = c(2, 5, 10), 
+    rounds = c(5, 10), 
+    win = seq(1.1, 2, l = 200),
+    lose = seq(0.5, 0.9, l = 200)) |> 
+  mutate(bank_payout = expected_bank_payout(players, rounds, win, lose))
+         
+ggplot(expected_bank_payout_table |> filter(win + lose > 2)) +
+  geom_raster(aes(x = win, y = lose, fill = log10(-bank_payout))) +
+  facet_grid(players ~ rounds, labeller = label_both) +
+  scale_fill_viridis_c("Expected Bank Losses (log10)") +
+  theme(legend.position = "bottom")
+
+ggplot(expected_bank_payout_table |> filter(win + lose <= 2)) +
+  geom_raster(aes(x = win, y = lose, fill = bank_payout)) +
+  facet_grid(players ~ rounds, labeller = label_both) +
+  scale_fill_viridis_c("Expected Bank Wins") +
+  theme(legend.position = "bottom")
+```
+
+### Probability of ruin for the bank
+
+Exact distribution of $\sum^m X_j$ is not accessible -- requires convolution ("Faltung") of $m$ densities, that's terrible.
+
+Use CLT & lots of handwaving instead: \begin{align*}
+X &= w^K l^{n-K} \\
+\log X  &= \log{\tfrac{w}{l}} K + n \log l \\
+K &\sim B(n, 0.5) \implies K \stackrel{as}{\sim} N(\mu = n/2, \sigma^2 = n/4)\\
+\implies \log X &\stackrel{as}{\sim} N(\mu \log{\tfrac{w}{l}} n/2 + n \log l, \log{\tfrac{w}{l}}^2 n/4) \\
+X &\stackrel{as}{\sim} LN(\mu \log{\tfrac{w}{l}} n/2 + n \log l, \log{\tfrac{w}{l}}^2 n/4)
+\end{align*}
+
+<details>
+Verify:
+```{r}
+n <- 100; w <- 1.8; l <- 0.7
+z <- play(10000, rounds = n, win = w, lose = l)[n,]
+plot(density(log(z)))
+curve(dnorm(x, 
+            mean = log(w/l) * n/2 + n * log(l), 
+            sd = sqrt(log(w/l)^2 * n/4)), 
+      col = 2, add = TRUE)
+# --> looking good
+```
+</details>
+
+We still need the distribution of $\sum^m X_j$, though, which remains a problem. Some googling gives an approximate expression for sums of (correlated, but we don't care) log-normal variates that we could use which is implemented in the `lognorm`-package:  ![[source](https://cran.r-project.org/web/packages/lognorm/vignettes/lognormalSum.html)](images/paste-264F62BA.png)
+[source](https://cran.r-project.org/web/packages/lognorm/vignettes/lognormalSum.html)  
+
+Based on that approximation of the distribution parameters of $\sum^m X_j$, we can compute the bank ruin probability $P(Z < 0) = P(\sum^m_j X_j > m)$:
+```{r}
+# Approximate CDF of bank payout
+# returns P(\sum^m X_j <= q; m, n, w, l)
+cdf_bankpayout <- function(q, players, rounds, win, lose) {
+  mu <- log(win/lose) * rounds/2 + rounds * log(lose)
+  sigma <- sqrt(log(win/lose)^2 * rounds/4)
+  params <- lognorm::estimateSumLognormal(mu = rep(mu, players), 
+                                          sigma = rep(sigma, players), 
+                                          corr = diag(players)) #no correlations
+  plnorm(q, meanlog = params["mu"], sdlog = params["sigma"])
+}
+
+# compute for grid of (m, n, w, l)-values:
+bank_ruin_table <- 
+  expand.grid(
+    players = c(2, 5, 10), 
+    rounds = c(5, 10, 20), 
+    win = seq(1.1, 2, l = 50),
+    lose = seq(0.5, 0.9, l = 50)) |> 
+  # cdf_bankpayout not a vectorized function, needs rowwise
+  rowwise() |> 
+  mutate(ruin_probability = 
+           1 - cdf_bankpayout(q = players, players, rounds, win, lose))
+         
+ggplot(bank_ruin_table) +
+  geom_raster(aes(x = win, y = lose, fill = ruin_probability)) +
+  facet_grid(players ~ rounds, labeller = label_both) +
+  scale_fill_gradient2("P(Bank ruined)", midpoint = 0.5) +
+  theme(legend.position = "bottom")
+```
+
+All else equal, more players mean that the range of $(w, l)$-tuples in which the bank does not get ruined with high probability, shrinks.
+All else equal, more rounds mean that probabilities become more extreme for most $(w, l)$.
+
+TODO: Verify approximate sum-of-lognormals CDF with simulations.
