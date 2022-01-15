@@ -260,7 +260,7 @@ We define $h_{n,f_w,n_p}:(0,1) \to \mathbb{R}, h_{n,f_w,n_p}(f_l) = \frac{n}{1-\
 We define $g_{n,f_l,n_p}:(1,\infty) \to \mathbb{R}, g_{n,f_l,n_p}(f_w) = \frac{n}{1-\frac{\ln(f_w)}{\ln(f_l)}} + \frac{\ln(n_p)}{\ln(\frac{f_w}{f_l})}$. The function $h_{n,f_w,n_p}$ is a decreasing function in its argument $f_w$.
 Therefore $k = h_{n,f_w,n_p}(f_l) = g_{n,f_l,n_p}(f_w)$ decreases when $f_w$ or $f_l$ increases and vice versa.
 
-Furthermore $k$ increases with increasing $n$ and $n_p$. The amount of other players has a small impact on the numbers of heads needed to get above the blue line, since we only look at the logarithmic number of players. This can yet again be contributed to the multiplicative effect of the wins and loses and the fact that the total stakes only increase linearly by the number of players.
+Furthermore $k$ increases with increasing $n$ and $n_p$. The amount of other players has a small impact on the numbers of heads needed to get above the blue line, since we only look at the logarithmic number of players. This can yet again be contributed to the multiplicative effect of the wins and loses and the fact that the total stakes only increase linearly by the number of players. The effect of the number of played rounds is not obvious, because it comes up in several terms
 
 ## Calculating Probabilities
 
@@ -302,19 +302,19 @@ and the probability to win it all with 100 players is
 
 Using the `Winning` function we can also create some 3D plots to visualize relationships between different variables.
 
-As explained before, the probability for "winning it all" depends only logarithmically on the number of players $n_p$ and linearly on the number of rounds played $n$. We can see this in the following plot:
+In the following plot we can see the relationships between the number of players and the numbers of played rounds. Note that the z-axis for the probabilities is a log-scaled axis. We can see, that the effect of the number of players decreases very fast and becomes almost constant. The number of played rounds has an almost linear effect on the log-probability of winning. This comes from the fact, that up $\Phi$ depends on $\sqrt{n}$ (up to a scalar-factor) and for large $n$ we can approximate $\sqrt{n}$ by a linear function, i.e. between 200 and 1000 $\sqrt{n}$ looks very linear. 
 
 ```{r echo=FALSE}
 library(plotly)
 
-rounds <- seq(100, 1000, length= 46)
-players <- seq(1,1001,length=51)
+rounds <- seq(100, 1000, length= 91)
+players <- seq(0,1000,length=101)
 probabilities <- matrix(nrow = length(rounds),ncol = length(players))
 
 for(p in 1:length(players)){
   probabilities[,p] <- Winning(rounds = rounds ,players = (p-1)*20+1)
 }
-plot_ly() %>% add_surface(x = ~rounds, y = ~players, z = ~log(probabilities))
+plot_ly() %>% add_surface(x = ~players, y = ~rounds, z = ~log(probabilities))
 
 ```
 
@@ -325,21 +325,23 @@ Another interesting relationship is the one between $f_w$ and $f_l$:
 ```{r echo=FALSE}
 
 winning_factor <- seq(1, 2, length= 100)
-losing_factor <- seq(0.1, 1, length= 100)
+losing_factor <- seq(0.1, 1, length= 200)
 probabilities <- matrix(nrow = length(winning_factor),ncol = length(losing_factor))
 
 for(l in 1:length(losing_factor)){
   probabilities[,l] <- Winning(Win = winning_factor, Lose = losing_factor[l])
 }
-plot_ly() %>% add_surface(x = ~winning_factor, y = ~losing_factor, z = ~probabilities)
+plot_ly() %>% add_surface(y = ~ winning_factor, x= ~ losing_factor, z = ~probabilities) %>% 
+  add_trace(x = ~(2-winning_factor), y = ~winning_factor, z = 1, mode = "lines",line = list(color = 'red', width = 5)) %>% add_trace(x = ~(1/winning_factor), y = ~winning_factor, z = 1, mode = "lines",line = list(color = 'blue', width = 5)) %>% add_trace(x = ~(2-winning_factor), y = ~winning_factor, z = 0, mode = "lines",line = list(color = 'red', width = 5)) %>% add_trace(x = ~(1/winning_factor), y = ~winning_factor, z = 0, mode = "lines",line = list(color = 'blue', width = 5))
 
 ```
 
-As expected and explained, the winning probability is very sensitive to $f_w$ and $f_l$. 
+As expected and explained, the winning probability is very sensitive to $f_w$ and $f_l$. The red lines mark the combinations of $f_w$ and $f_l$ that result in an arithmetic mean of 1. Everything combination of factors in the direction of the yelow area results in an arithmetic mean bigger 1.
+The blue lines mark the combinations of $f_w$ and $f_l$ that result in a geometric mean of 1. Everything combination of factors in the direction of the purble area results in a geometric mean smaller 1. As we can see the area between the lines is mostly purble - meaning 0 chance of winning - but at the same time it also contains most of the sensible slopy area, meaning that some combinations of $f_w$ and $f_l$ will not converge fast enough to 0 to make the players certainly lose in 100 rounds. One such combination is $f_w = 1.5$ and $f_l = 0.6$.
 
 # Conclusion
 
-As we can see, the guy from the bar might be doing himself a favor by not offering this game to often, because with increasing an amount of players it becomes very certain that he will lose all his money to a few lucky players. After all, the amount of money that a player can win is very high, but the amount of money a player can lose is just the starting value, i.e. the price of the game. Of course the guy could also choose better values for $f_w$ and $f_l$, but it's not obvious if the game will then still be attractive to players. After all the guy who calculated the average return as $\frac12 1.5 + \frac 12 0.6 = 1.05$ would not play this game if $f_l$ is below $0.5$ or $2-f_w$ in general - This area $f_l = 2-f_w$ would be pretty much be the lower boundary of the sensitive area in the plot above. So instead of adjusting the factors, the guy who offered the game should stop lecturing the bar guests and go back to study statistics with Dr. Fabian Scheipl.
+As we can see, the guy from the bar might be doing himself a favor by not offering this game to often, because with increasing an amount of players it becomes very certain that he will lose all his money to a few lucky players. After all, the amount of money that a player can win is very high, but the amount of money a player can lose is just the starting value, i.e. the price of the game. Of course the guy could also choose better values for $f_w$ and $f_l$, but it's not obvious if the game will then still be attractive to players. After all the guy who calculated the average return as $\frac12 1.5 + \frac 12 0.6 = 1.05$ would not play this game if $f_l$ is below $0.5$ or $2-f_w$ in general (red line in the graph above). One combination of $f_w$ and $f_l$ that would satisfy both conditions (geometric mean < 1 and arithmetic mean > 1) is $f_w = 2$ and $f_l = 0.15$. This combination would almost surely lead to a favourable game for the game host, as the winning chances for 100 rounds are `r Winning(Win=2,Lose = 0.15, rounds = 100)`. But at the same time those factor are so ridiculous that probably no one will play. After all most people are very sensitive to loses and losing 85% of the money in a single coin toss is to risky for most people. So instead of adjusting the factors, the guy who offered the game should just stop lecturing the bar guests and go back to study statistics with Dr. Fabian Scheipl.
 
 
 
