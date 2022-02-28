@@ -11,13 +11,13 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
-	echo = TRUE,
-	message = FALSE,
-	warning = FALSE
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE
 )
-list.of.packages <- c("ggplot2", "dplyr","rmarkdown","reshape2","plotly")
-new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)){install.packages(new.packages)}
+list.of.packages <- c("ggplot2", "dplyr", "rmarkdown", "reshape2", "plotly")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[, "Package"])]
+if (length(new.packages)) {install.packages(new.packages)}
 
 library(ggplot2)
 library(dplyr)
@@ -34,11 +34,11 @@ At the time of writing the second season of `The Witcher` series is trending on 
 ## Inspiration for a gambling game
 
 I once read about a gambling game in a thriller book about a financial meltdown, [Greed - by Marc Elsberg](https://www.amazon.com/-/de/dp/3734105587/ref=tmm_pap_swatch_0?_encoding=UTF8&qid=&sr=). 
-It went like this (Spoiler alert): A guy offers the following game to 10 people in a bar. Each of the 10 people pay the guy 10€ and then they individually throw a fair coin 100 times. Each time when they throw a head, their paid money increases by a factor of 1.5 and each time when they throw a tail, their money decreases by a factor of 0.6. After 100 coin tosses they get payed back the amount they ended with.  
+It went like this (Spoiler alert): A guy offers the following game to 10 people in a bar. Each of the 10 people pays the guy 10€ and then they individually throw a fair coin 100 times. Each time when they throw a head, their paid money increases by a factor of 1.5 and each time when they throw a tail, their money decreases by a factor of 0.6. After 100 coin tosses they get payed back the amount they ended with.  
 Example: I pay 10€ and throw a head on my first turn - now I'm at 15€. In the next round I throw a head again - now I'm at 22.5€. In the third round I throw tail - now I'm at 13.5€. After 100 rounds I might be at 7€, so I get payed back 7€ and therefore lost 3€ (10€ payed, 7€ won).  
 The story continuous with one man convincing the other nine to play, because, he learned in school, that the average win in this game must be $\frac12 1.5 + \frac 12 0.6 = 1.05$ and thus each game has an expected win-factor of 1.05. What follows is, that all 10 of them play and lose the game and the guy who just won almost 100€ lectures them on mathematics, why not to play a game like this and what this has to do with the crash of economies.  
 
-I was fascinated by this game and was wondering about what went wrong in the reasoning of the man. Therefore I simulated the game and played around with different numbers of players and factors. But I couldn't replicate the conclusion of the guy who offered the game, because indeed, a lot of times, the game was a lose for me (in this scenario I'm the one offering the game). So I began to think, that it doesn't make sense for me to offer this game. But at the same time, most or even all of the players lost the game, so I wouldn't wanna play this game neither. `It seemed to me, that I found a game where it is not recommendable to play the game, but also not recommendable to offer it.`  
+I was fascinated by this game and was wondering about what went wrong in the reasoning of the man. Therefore I simulated the game and played around with different numbers of players and factors. But I couldn't replicate the conclusion of the guy who offered the game, because indeed, a lot of times, the game was a loss for me (in this scenario I'm the one offering the game). So I began to think, that it doesn't make sense for me to offer this game. But at the same time, most or even all of the players lost the game, so I wouldn't wanna play this game neither. `It seemed to me, that I found a game where it is not recommendable to play the game, but also not recommendable to offer it.`  
 
 In this small project I want to analyse more specifically why this is the case and use this opportunity to learn more about the geometric mean and log-normal-distributions.
 
@@ -55,33 +55,32 @@ Arguments:
 
 *   `Startvalue`: A numeric (>0) that represents the stake of a game (amount of money the player pays to play).
 *   `Win`: A numeric (> 1) that represents the factor with which the `Startvalue` is multiplied when throwing head. Default is set to 1.5.
-*   `Lose`: A numeric (< 1)that represents the factor with which the `Startvalue` is multiplied when throwing tail. Default is set to 0.6.
+*   `Lose`: A numeric (< 1) that represents the factor with which the `Startvalue` is multiplied when throwing tail. Default is set to 0.6.
 *   `rounds`: A numeric whole number ($\geq 1$) that represents the number of played rounds, i.e. how often the coin is tossed. Default is set to 100.
 *   `head_prob`: A numeric (0 < head_prob < 1) that represents the probability for heads. Default is set to 0.5 (fair coin).  
 
 Outcome: A vector of length `rounds+1` that contains the stake of the player in all rounds. Starting with `Startvalue` in row 1 and ending with the amount of money he gets payed back.
 
 ```{r}
-One_Game <- function(Win = 1.5, Lose = 0.6, Startvalue = 10, rounds = 100,head_prob = 0.5){
-    
-  #Input Checks
-  stopifnot(is.numeric(Win) & is.numeric(Lose) & is.numeric(Startvalue) & is.numeric(rounds) & is.numeric(head_prob) & Win > 1 & Lose < 1 & rounds%%1 == 0 & rounds >= 1 & head_prob < 1 & head_prob > 0)
-  
+One_Game <- function(Win = 1.5, Lose = 0.6, Startvalue = 10, rounds = 100, head_prob = 0.5) {
+
+  # Input Checks
+  stopifnot(is.numeric(Win) & is.numeric(Lose) & is.numeric(Startvalue) & is.numeric(rounds) & is.numeric(head_prob) & Win > 1 & Lose < 1 & rounds %% 1 == 0 & rounds >= 1 & head_prob < 1 & head_prob > 0)
+
   # Creating a vector of length rounds that contains the results for the coin tosses (0 for tail and 1 for head)
-  Outcomes = sample(0:1, size=rounds, prob = c(1-head_prob,head_prob),replace = TRUE)
-    
+  Outcomes <- sample(0:1, size = rounds, prob = c(1 - head_prob, head_prob), replace = TRUE)
+
   # Creating a vector that contains the stake at each round based on the Outcomes above.
-  Spielverlauf = Startvalue
-  index=1
-  for(toss in Outcomes){
-    if(toss){
-      Spielverlauf = c(Spielverlauf,Spielverlauf[index]*Win)
-    } else{
-      Spielverlauf = c(Spielverlauf,Spielverlauf[index]*Lose)
+  Spielverlauf <- Startvalue
+  index <- 1
+  for (toss in Outcomes) {
+    if (toss) {
+      Spielverlauf <- c(Spielverlauf, Spielverlauf[index] * Win)
+    } else {
+      Spielverlauf <- c(Spielverlauf, Spielverlauf[index] * Lose)
     }
-    index = index + 1
+    index <- index + 1
   }
-  
   return(Spielverlauf)
 }
 ```
@@ -110,17 +109,17 @@ Outcome: A data frame of length `rounds+1` that contains the stakes of the playe
 
 
 ```{r message=FALSE, warning=FALSE}
-Many_Games <- function(players = 10, rounds = 100, ...){
-  
-  #Input Checks
+Many_Games <- function(players = 10, rounds = 100, ...) {
+
+  # Input Checks
   stopifnot(is.numeric(players) & players >= 1)
-  
-  #Creating an empty data frame of the needed dimensions
-  df <- data.frame(matrix(nrow = (rounds+1),ncol = players))
-  
-  #Filling the data frame column by column with the results of One_Game
-  for(i in 1:ncol(df)){
-    df[,i] <- One_Game(rounds = rounds, ...)
+
+  # Creating an empty data frame of the needed dimensions
+  df <- data.frame(matrix(nrow = (rounds + 1), ncol = players))
+
+  # Filling the data frame column by column with the results of One_Game
+  for (i in 1:ncol(df)) {
+    df[, i] <- One_Game(rounds = rounds, ...)
   }
 
   return(df)
@@ -151,31 +150,30 @@ The pink line represents the expected stake in each round based on the geometric
 
 
 ```{r message=FALSE, warning=FALSE}
-Many_Games_plot <- function(Startvalue = 10, rounds = 100, players = 10, Win = 1.5, Lose = 0.6, ...){
-  
-df <- Many_Games(Startvalue = Startvalue, rounds = rounds, Win = Win, Lose = Lose, players = players,...)
+Many_Games_plot <- function(Startvalue = 10, rounds = 100, players = 10, Win = 1.5, Lose = 0.6, ...) {
+  df <- Many_Games(Startvalue = Startvalue, rounds = rounds, Win = Win, Lose = Lose, players = players, ...)
 
-df$index <- 1:nrow(df)
+  df$index <- 1:nrow(df)
 
-df_long <- melt(df , id.vars = 'index', variable.name = 'Spieler')
+  df_long <- melt(df, id.vars = "index", variable.name = "Spieler")
 
-g <- ggplot(df_long, aes(index,value))+ 
-      geom_line(aes(group = Spieler),alpha=1/log10(rounds),size=1/log10(players))+
-      scale_y_log10()+
-      geom_function(fun = function(index) Startvalue*((Win*Lose)^0.5)^(index-1),color="pink",size=2/log10(players))+
-      geom_hline(yintercept = Startvalue,color="red",linetype="dashed")+
-      geom_hline(yintercept = Startvalue*players,color="blue",linetype="dotdash")+
-      labs(title="Sample Coin Toss Game", x= "Round", y="Stake at given round")+
-      theme_bw()
+  g <- ggplot(df_long, aes(index, value)) +
+    geom_line(aes(group = Spieler), alpha = 1 / log10(rounds), size = 1 / log10(players)) +
+    scale_y_log10() +
+    geom_function(fun = function(index) Startvalue * ((Win * Lose)^0.5)^(index - 1), color = "pink", size = 2 / log10(players)) +
+    geom_hline(yintercept = Startvalue, color = "red", linetype = "dashed") +
+    geom_hline(yintercept = Startvalue * players, color = "blue", linetype = "dotdash") +
+    labs(title = "Sample Coin Toss Game", x = "Round", y = "Stake at given round") +
+    theme_bw()
 
-    return(g)
+  return(g)
 }
 ```
 
 Examples:
 ```{r message=FALSE, warning=FALSE}
 Many_Games_plot()
-Many_Games_plot(players = 100,rounds = 500)
+Many_Games_plot(players = 100, rounds = 500)
 ```
 
 As we see, in both examples almost all players lose and as expected most of them do so exponentially fast. But unfortunately for us - the game host - there are players who are so lucky, that they win more money than the total stakes. So although almost all players lost the game, we as well lost money. 
@@ -189,9 +187,9 @@ After running this game over and over again (with 100 players and 500 rounds), w
 To get a better understanding of the process that leads to this distribution, we will now take a look at the underlying mathematics.
 
 Let $Z$ be a random variable that represents the amount of heads in the $n$ coin tosses with probability $p$ for heads - $Z \sim B(n,p)$. Let $s$ be the `Startvalue` of the game and `f_w` and `f_l` the multiplicative factors for winning and losing.  
-Let $X_n$ be the a random variable that represents the stake after $n$ rounds. We can decribe $X_n$ as follows:
+Let $X_n$ be the a random variable that represents the stake after $n$ rounds. We can describe $X_n$ as follows:
 $$ X_n = s\cdot f_w^Z \cdot f_l^{n-Z} = s\cdot f_l^n \cdot (\frac{f_w}{f_l})^Z$$
-By applying some transformations we can see that $\log(X_n)$ follows a binomial distribution and is threfore, for large enough n, approximately normal distributed.
+By applying some transformations we can see that $\log(X_n)$ follows a binomial distribution and is therefore, for large enough n, approximately normal distributed.
 
 $$\begin{aligned}
 & a := \frac{f_w}{f_l}  \\
@@ -213,34 +211,35 @@ Outcome: A plot that shows the distribution of the transformed end-results of `M
 The red line represents the approximated distribution using the kernal density function and the blue line represents the expected approximated normal distribution of $Z$, i.e. of $B(n,p)$.
 
 ```{r}
-Log_Games <- function(Startvalue = 10, rounds = 100, players = 50, Win = 1.5, Lose = 0.6, head_prob=0.5){
-  
-  End_res <- Many_Games(players = players,rounds = rounds, Win=Win, Lose=Lose,head_prob=head_prob) %>% mutate(index=1:(rounds+1)) %>% melt(id.vars = 'index', variable.name = 'Spieler') %>% filter(index == rounds)
-  
-  Z <- logb(End_res$value/(Startvalue*Lose^rounds),base=(Win/Lose))
-  
-  g <- ggplot(as.data.frame(Z),aes(x=Z))+
-    geom_histogram(aes(y=..density..),color="white",alpha = 0.8)+
-    geom_density(alpha = 0, color = "red")+
-    scale_x_continuous(breaks=round(seq(-3,3,1)*sd(Z)+mean(Z)))+
-    stat_function(fun = dnorm, args = list(mean = rounds*head_prob, sd = sqrt(rounds*head_prob*(1-head_prob))),color="blue")+
-    annotate("text", x=Inf, y = Inf, label = "\nExpected normal distribution", vjust=1, hjust=1, color = "blue")+
-    annotate("text", x=Inf, y = Inf, label = "\n\nKernal density function", vjust=1, hjust=1, color = "red")+
+Log_Games <- function(Startvalue = 10, rounds = 100, players = 50, Win = 1.5, Lose = 0.6, head_prob = 0.5) {
+  End_res <- Many_Games(players = players, rounds = rounds, Win = Win, Lose = Lose, head_prob = head_prob) %>%
+    mutate(index = 1:(rounds + 1)) %>%
+    melt(id.vars = "index", variable.name = "Spieler") %>%
+    filter(index == rounds)
+
+  Z <- logb(End_res$value / (Startvalue * Lose^rounds), base = (Win / Lose))
+
+  g <- ggplot(as.data.frame(Z), aes(x = Z)) +
+    geom_histogram(aes(y = ..density..), color = "white", alpha = 0.8) +
+    geom_density(alpha = 0, color = "red") +
+    scale_x_continuous(breaks = round(seq(-3, 3, 1) * sd(Z) + mean(Z))) +
+    stat_function(fun = dnorm, args = list(mean = rounds * head_prob, sd = sqrt(rounds * head_prob * (1 - head_prob))), color = "blue") +
+    annotate("text", x = Inf, y = Inf, label = "\nExpected normal distribution", vjust = 1, hjust = 1, color = "blue") +
+    annotate("text", x = Inf, y = Inf, label = "\n\nKernal density function", vjust = 1, hjust = 1, color = "red") +
     theme_bw()
 
-  
   return(g)
 }
 ```
 
 Example for 500 players and 500 rounds:
 ```{r}
-Log_Games(players = 500,rounds = 500)
+Log_Games(players = 500, rounds = 500)
 ```
 
 **Questions:  **
-**1. How likly is it to win the game as a player (above red line in Many_Games_plot)?**  
-**2. How likly is it to win more than the total stake (above blue line in Many_Games_plot)?**
+**1. How likely is it to win the game as a player (above red line in Many_Games_plot)?**  
+**2. How likely is it to win more than the total stake (above blue line in Many_Games_plot)?**
 
 To answer those questions we first calculate the amount of heads needed to win (based on the number of rounds played):
 Let $k$ be the number of heads in $n$ rounds. We first calculate the amount of heads needed to win the game:
@@ -252,15 +251,15 @@ $$s\cdot f_w^k\cdot f_l^{n-k} > s\cdot n_p \Leftrightarrow k > -n\cdot \log_a(f_
 
 So for $k$ heads with $k > \frac{n}{1-\frac{\ln(f_w)}{\ln(f_l)}} + \frac{\ln(n_p)}{\ln(\frac{f_w}{f_l})}$ the player wins more than the total stakes.
 
-Indeed we can see that $k$ is very sensitive to the ratio of the logarithmic factors. The intuition behind the logarithm here is the fact, that $f_w > 1$ can be infinitly large, but $f_l<1$ is only between 0 and 1. So to compare them appropriately, we take their respective logarithms.
+Indeed we can see that $k$ is very sensitive to the ratio of the logarithmic factors. The intuition behind the logarithm here is the fact, that $f_w > 1$ can be infinitely large, but $f_l<1$ is only between 0 and 1. So to compare them appropriately, we take their respective logarithms.
 This confirms our assumptions from before, i.e. it takes longer to win the smaller the geometric mean is and the number of heads needed to win is also very sensitive to the geometric mean. The geometric mean increases with higher $f_w$ and higher $f_l$ and so does the $k$ based on the equation above.
 
-*Note*: Because its hard to see that the last statement is true, here is a clearer explanation:
+*Note*: Because it's hard to see that the last statement is true, here is a clearer explanation:
 We define $h_{n,f_w,n_p}:(0,1) \to \mathbb{R}, h_{n,f_w,n_p}(f_l) = \frac{n}{1-\frac{\ln(f_w)}{\ln(f_l)}} + \frac{\ln(n_p)}{\ln(\frac{f_w}{f_l})}$. The function $h_{n,f_w,n_p}$ is a decreasing function in its argument $f_l$.  
 We define $g_{n,f_l,n_p}:(1,\infty) \to \mathbb{R}, g_{n,f_l,n_p}(f_w) = \frac{n}{1-\frac{\ln(f_w)}{\ln(f_l)}} + \frac{\ln(n_p)}{\ln(\frac{f_w}{f_l})}$. The function $h_{n,f_w,n_p}$ is a decreasing function in its argument $f_w$.
 Therefore $k = h_{n,f_w,n_p}(f_l) = g_{n,f_l,n_p}(f_w)$ decreases when $f_w$ or $f_l$ increases and vice versa.
 
-Furthermore $k$ increases with increasing $n$ and $n_p$. The amount of other players has a small impact on the numbers of heads needed to get above the blue line, since we only look at the logarithmic number of players. This can yet again be contributed to the multiplicative effect of the wins and loses and the fact that the total stakes only increase linearly by the number of players. The effect of the number of played rounds is not obvious, because it comes up in several terms
+Furthermore $k$ increases with increasing $n$ and $n_p$. The amount of other players has a small impact on the numbers of heads needed to get above the blue line, since we only look at the logarithmic number of players. This can yet again be contributed to the multiplicative effect of the wins and losses and the fact that the total stakes only increase linearly by the number of players. The effect of the number of played rounds is not obvious, because it comes up in several terms.
 
 ## Calculating Probabilities
 
@@ -280,12 +279,12 @@ $$P(\text{Winning it all}) = P(X_n \geq s\cdot n_p) = P\Bigg(Z \geq \frac{n}{1-\
 We can write this as a function to make better use of it:
 
 ```{r}
-Winning <- function(rounds = 100, players = 1, Win = 1.5, Lose = 0.6, head_prob=0.5,...){
+Winning <- function(rounds = 100, players = 1, Win = 1.5, Lose = 0.6, head_prob = 0.5, ...){
   
   zaehler = (rounds/(1-log(Win)/log(Lose)))  + log(players)/log(Win/Lose) - rounds*head_prob
   nenner = sqrt(rounds*head_prob*(1-head_prob))
   
-  return(pnorm(zaehler/nenner,lower.tail = FALSE))
+  return(pnorm(zaehler/nenner, lower.tail = FALSE))
   
 }
 ```
@@ -307,14 +306,14 @@ In the following plot we can see the relationships between the number of players
 ```{r echo=FALSE}
 library(plotly)
 
-rounds <- seq(100, 1000, length= 91)
-players <- seq(0,1000,length=101)
-probabilities <- matrix(nrow = length(rounds),ncol = length(players))
+rounds <- seq(100, 1000, length = 91)
+players <- seq(0, 1000, length = 101)
+probabilities <- matrix(nrow = length(rounds), ncol = length(players))
 
-for(p in 1:length(players)){
-  probabilities[,p] <- Winning(rounds = rounds ,players = (p-1)*20+1)
+for (p in 1:length(players)) {
+  probabilities[, p] <- Winning(rounds = rounds, players = (p - 1) * 20 + 1)
 }
-plot_ly() %>% add_surface(x = ~players, y = ~rounds, z = ~log(probabilities))
+plot_ly() %>% add_surface(x = ~players, y = ~rounds, z = ~ log(probabilities))
 
 ```
 
@@ -324,24 +323,28 @@ Another interesting relationship is the one between $f_w$ and $f_l$:
 
 ```{r echo=FALSE}
 
-winning_factor <- seq(1, 2, length= 100)
-losing_factor <- seq(0.1, 1, length= 200)
-probabilities <- matrix(nrow = length(winning_factor),ncol = length(losing_factor))
+winning_factor <- seq(1, 2, length = 100)
+losing_factor <- seq(0.1, 1, length = 200)
+probabilities <- matrix(nrow = length(winning_factor), ncol = length(losing_factor))
 
-for(l in 1:length(losing_factor)){
-  probabilities[,l] <- Winning(Win = winning_factor, Lose = losing_factor[l])
+for (l in 1:length(losing_factor)) {
+  probabilities[, l] <- Winning(Win = winning_factor, Lose = losing_factor[l])
 }
-plot_ly() %>% add_surface(y = ~ winning_factor, x= ~ losing_factor, z = ~probabilities) %>% 
-  add_trace(x = ~(2-winning_factor), y = ~winning_factor, z = 1, mode = "lines",line = list(color = 'red', width = 5)) %>% add_trace(x = ~(1/winning_factor), y = ~winning_factor, z = 1, mode = "lines",line = list(color = 'blue', width = 5)) %>% add_trace(x = ~(2-winning_factor), y = ~winning_factor, z = 0, mode = "lines",line = list(color = 'red', width = 5)) %>% add_trace(x = ~(1/winning_factor), y = ~winning_factor, z = 0, mode = "lines",line = list(color = 'blue', width = 5))
+plot_ly() %>%
+  add_surface(y = ~winning_factor, x = ~losing_factor, z = ~probabilities) %>%
+  add_trace(x = ~ (2 - winning_factor), y = ~winning_factor, z = 1, mode = "lines", line = list(color = "red", width = 5)) %>%
+  add_trace(x = ~ (1 / winning_factor), y = ~winning_factor, z = 1, mode = "lines", line = list(color = "blue", width = 5)) %>%
+  add_trace(x = ~ (2 - winning_factor), y = ~winning_factor, z = 0, mode = "lines", line = list(color = "red", width = 5)) %>%
+  add_trace(x = ~ (1 / winning_factor), y = ~winning_factor, z = 0, mode = "lines", line = list(color = "blue", width = 5))
 
 ```
 
-As expected and explained, the winning probability is very sensitive to $f_w$ and $f_l$. The red lines mark the combinations of $f_w$ and $f_l$ that result in an arithmetic mean of 1. Everything combination of factors in the direction of the yelow area results in an arithmetic mean bigger 1.
-The blue lines mark the combinations of $f_w$ and $f_l$ that result in a geometric mean of 1. Everything combination of factors in the direction of the purble area results in a geometric mean smaller 1. As we can see the area between the lines is mostly purble - meaning 0 chance of winning - but at the same time it also contains most of the sensible slopy area, meaning that some combinations of $f_w$ and $f_l$ will not converge fast enough to 0 to make the players certainly lose in 100 rounds. One such combination is $f_w = 1.5$ and $f_l = 0.6$.
+As expected and explained, the winning probability is very sensitive to $f_w$ and $f_l$. The red lines mark the combinations of $f_w$ and $f_l$ that result in an arithmetic mean of 1. Everything combination of factors in the direction of the yellow area results in an arithmetic mean bigger 1.
+The blue lines mark the combinations of $f_w$ and $f_l$ that result in a geometric mean of 1. Everything combination of factors in the direction of the purple area results in a geometric mean smaller 1. As we can see the area between the lines is mostly purple - meaning 0 chance of winning - but at the same time it also contains most of the sensible slopy area, meaning that some combinations of $f_w$ and $f_l$ will not converge fast enough to 0 to make the players certainly lose in 100 rounds. One such combination is $f_w = 1.5$ and $f_l = 0.6$.
 
 # Conclusion
 
-As we can see, the guy from the bar might be doing himself a favor by not offering this game to often, because with increasing an amount of players it becomes very certain that he will lose all his money to a few lucky players. After all, the amount of money that a player can win is very high, but the amount of money a player can lose is just the starting value, i.e. the price of the game. Of course the guy could also choose better values for $f_w$ and $f_l$, but it's not obvious if the game will then still be attractive to players. After all the guy who calculated the average return as $\frac12 1.5 + \frac 12 0.6 = 1.05$ would not play this game if $f_l$ is below $0.5$ or $2-f_w$ in general (red line in the graph above). One combination of $f_w$ and $f_l$ that would satisfy both conditions (geometric mean < 1 and arithmetic mean > 1) is $f_w = 2$ and $f_l = 0.15$. This combination would almost surely lead to a favourable game for the game host, as the winning chances for 100 rounds are `r Winning(Win=2,Lose = 0.15, rounds = 100)`. But at the same time those factor are so ridiculous that probably no one will play. After all most people are very sensitive to loses and losing 85% of the money in a single coin toss is to risky for most people. So instead of adjusting the factors, the guy who offered the game should just stop lecturing the bar guests and go back to study statistics with Dr. Fabian Scheipl.
+As we can see, the guy from the bar might be doing himself a favour by not offering this game too often, because with increasing an amount of players it becomes very certain that he will lose all his money to a few lucky players. After all, the amount of money that a player can win is very high, but the amount of money a player can lose is just the starting value, i.e. the price of the game. Of course the guy could also choose better values for $f_w$ and $f_l$, but it's not obvious if the game will then still be attractive to players. After all the guy who calculated the average return as $\frac12 1.5 + \frac 12 0.6 = 1.05$ would not play this game if $f_l$ is below $0.5$ or $2-f_w$ in general (red line in the graph above). One combination of $f_w$ and $f_l$ that would satisfy both conditions (geometric mean < 1 and arithmetic mean > 1) is $f_w = 2$ and $f_l = 0.15$. This combination would almost surely lead to a favourable game for the game host, as the winning chances for 100 rounds are `r Winning(Win=2,Lose = 0.15, rounds = 100)`. But at the same time those factors are so ridiculous that probably no one will play. After all most people are very sensitive to loses and losing 85% of the money in a single coin toss is too risky for most people. So instead of adjusting the factors, the guy who offered the game should just stop lecturing the bar guests and go back to study statistics with Dr. Fabian Scheipl.
 
 
 
